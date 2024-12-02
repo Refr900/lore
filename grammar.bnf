@@ -1,0 +1,34 @@
+program = (declaration)*
+
+## Declarations
+declaration  ::= fn | const
+
+## Statements
+stmt          ::= expr | variable | assignment | fn | block
+fn            ::= "fn" ident "(" args? ")" "->" path block
+variable      ::= ("pub")? ("let" | "const") ident "=" expr;
+assignment    ::= call assign_op assign_suffix? "=" expr;
+block         ::= "{" (stmt)* "}"
+assign_op     ::= "+"|"-"|"*"|"/"|"%"|"^"|"&"|"|"|"<<"|">>"
+assign_suffix ::= "%"|"#"|"?" | "+"|"-"|"*"|"/"|"^"|"&"|"|"
+
+## Expressions
+expr          ::= logic_or
+logic_or      ::= logic_and  ("||" logic_and)*
+logic_and     ::= equality   ("&&" equality)*
+equality      ::= comparison (("!="|"==") comparison)*
+comparison    ::= term       ((">"|">="|"<"|"<=") term)*
+term          ::= factor     (("+"|"-") factor)*
+factor        ::= power      (("*"|"/") power)*
+power         ::= unary      ("^" unary)*
+unary         ::= ("!"|"-")* call
+call          ::= (value | path) ((args?) | ("." ident))*
+value         ::= block | parentheses | lit
+lit           ::= str | char | number | bool
+parentheses   ::= "(" expr ")"
+
+## Common
+args          ::= expr ("," expr)*
+params        ::= param ("," param)*
+param         ::= ident ":" path
+path          ::= ident ("::" ident)*
