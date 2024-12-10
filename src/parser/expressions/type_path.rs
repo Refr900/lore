@@ -1,42 +1,42 @@
 use crate::{
     lexer::{Kind, TokenId},
-    parser::{Parse, Parser, TypePathExt},
+    parser::{Parse, Parser},
 };
 
 #[derive(Debug, Clone)]
-pub struct PathExpr {
+pub struct TypePathExpr {
     // `path::path.path`
     //  ^^^^
     pub(crate) start: TokenId,
     // Like `path::path.path` = 1
     //           ^^
-    pub(crate) mod_len: u16,
-    // Like `path::path.path` = 1
-    //                 ^
-    pub(crate) var_len: u16,
+    pub(crate) len: u16,
 }
 
-impl PathExpr {
-    pub const fn new(start: TokenId, mod_len: u16, var_len: u16) -> Self {
-        Self {
-            start,
-            mod_len,
-            var_len,
-        }
+impl TypePathExpr {
+    pub const fn new(start: TokenId, len: u16) -> Self {
+        Self { start, len }
     }
 }
 
-impl Parse for PathExpr {
+impl Parse for TypePathExpr {
     type Parsed = Self;
     type Error = ();
 
     fn parse(parser: &mut Parser<'_>) -> Result<Self, ()> {
-        let type_path = parser.parse_type_path()?;
         let Parser { stream, errors } = parser;
-        
+        stream.maybe(Kind![::]);
+        let start = match stream.expect(Kind::Ident) {
+            Ok(id) => id,
+            Err(err) => {
+                errors.push(err);
+                return Err(());
+            }
+        };
+
         let mut len = 0;
         loop {
-            if stream.expect(Kind![.]).is_err() {
+            if stream.expect(Kind![::]).is_err() {
                 break;
             }
 
@@ -48,6 +48,6 @@ impl Parse for PathExpr {
             len += 1;
         }
 
-        Ok(PathExpr::new(type_path.start, type_path.len, len))
+        Ok(TypePathExpr::new(start, len))
     }
 }

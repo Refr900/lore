@@ -3,94 +3,119 @@ use std::str::Chars;
 mod token;
 pub use token::*;
 
-pub use LiteralKind::*;
-pub use TokenKind::*;
+mod macros;
+pub(crate) use macros::*;
 
 /// Lightweight iterator for character sequence
+#[repr(transparent)]
 #[derive(Debug, Clone)]
-pub struct Cursor<'a> {
-    chars: Chars<'a>,
-    remaining_len: usize,
-}
+pub struct Cursor<'a>(Chars<'a>);
 
 pub const EOF: char = '\0';
 
 impl<'a> Cursor<'a> {
     pub fn new(source: &'a str) -> Self {
-        Self {
-            chars: source.chars(),
-            remaining_len: source.len(),
-        }
+        Self(source.chars())
     }
 }
 
 impl<'a> Cursor<'a> {
     pub fn advance_token(&mut self) -> Token {
-        let Some(c) = self.next() else {
-            return Token::eof();
-        };
+        let start_len = self.len();
+        let kind = self.match_kind();
+        let len = self.token_len(start_len);
+        Token::new(kind, len)
+    }
 
-        let token_kind = match c {
+    fn match_kind(&mut self) -> Kind {
+        let Some(first) = self.next() else {
+            return Kind::Eof;
+        };
+        match first {
             '/' => match self.advance() {
                 '/' => self.line_comment(),
                 '*' => self.block_comment(),
-                _ => Slash,
+                _ => Kind::Slash,
             },
             c if c.is_whitespace() => self.whitespace(c),
             c if c.is_ident_start() => self.ident(),
             c if !c.is_ascii() => self.invalid_ident(),
-            '\'' => Literal(self.char()),
-            '"' => Literal(self.str()),
-            '0'..='9' => Literal(self.parse_number(c)),
-            ';' => Semi,
-            ':' => Colon,
-            ',' => Comma,
-            '.' => Dot,
-            '@' => At,
-            '#' => Pound,
-            '~' => Tilde,
-            '?' => Question,
-            '$' => Dollar,
-            '=' => Eq,
-            '!' => Bang,
-            '<' => Lt,
-            '>' => Gt,
-            '-' => Minus,
-            '&' => And,
-            '|' => Or,
-            '+' => Plus,
-            '*' => Star,
-            '^' => Caret,
-            '%' => Percent,
-            '(' => OpenParen,
-            ')' => CloseParen,
-            '{' => OpenBrace,
-            '}' => CloseBrace,
-            '[' => OpenBracket,
-            ']' => CloseBracket,
+            '\'' => Kind::Lit(self.char()),
+            '"' => Kind::Lit(self.str()),
+            '0' => {
+                let base = match self.parse_base() {
+                    Ok(base) => base,
+                    Err(JustZero) => {
+                        return Kind::Lit(LitKind::Int {
+                            base: Base::Decimal,
+                            empty: false,
+                        })
+                    }
+                };
+                Kind::Lit(self.parse_number(base))
+            }
+            '1'..='9' => Kind::Lit(self.parse_decimal_number()),
+            ';' => Kind![;],
+            ':' => Kind![:],
+            ',' => Kind![,],
+            '.' => Kind![.],
+            '@' => Kind![@],
+            '#' => Kind![#],
+            '~' => Kind![~],
+            '?' => Kind![?],
+            '$' => Kind![$],
+            '=' => Kind![=],
+            '!' => Kind![!],
+            '<' => Kind![<],
+            '>' => Kind![>],
+            '-' => Kind![-],
+            '&' => Kind![&],
+            '|' => Kind![|],
+            '+' => Kind![+],
+            '*' => Kind![*],
+            '^' => Kind![^],
+            '%' => Kind![%],
+            '(' => Kind!['('],
+            ')' => Kind![')'],
+            '{' => Kind!['{'],
+            '}' => Kind!['}'],
+            '[' => Kind!['['],
+            ']' => Kind![']'],
             _ => self.unknown(),
-        };
-        let token = Token::new(token_kind, self.token_len());
-        self.reset_token_len();
-        token
+        }
     }
 }
 
 impl<'a> Cursor<'a> {
-    fn line_comment(&mut self) -> TokenKind {
+    fn len(&self) -> usize {
+        self.0.as_str().len()
+    }
+
+    fn lexeme(&self, start_len: usize) -> &str {
+        let end = self.token_len(start_len) as usize;
+        &self.0.as_str()[..end]
+    }
+
+    fn token_len(&self, start_len: usize) -> u32 {
+        (start_len - self.0.as_str().len()) as u32
+    }
+
+    fn line_comment(&mut self) -> Kind {
         // Check if comment is docs: `/// docs`
         // `//// comment` - not docs
         let kind = if self.first() == '/' && self.second() != '/' {
-            Docs
+            Kind::Docs
         } else {
-            LineComment
+            Kind::LineComment
         };
         // Consume comment
         self.skip_while(|c| c != '\n');
+        // Skip `\n`
+        self.skip();
         kind
     }
 
-    fn block_comment(&mut self) -> TokenKind {
+    fn block_comment(&mut self) -> Kind {
         let mut terminated = false;
         while !self.is_eof() {
             if self.first() == '*' && self.second() == '/' {
@@ -104,10 +129,10 @@ impl<'a> Cursor<'a> {
             self.skip();
         }
 
-        BlockComment { terminated }
+        Kind::BlockComment { terminated }
     }
 
-    fn whitespace(&mut self, first: char) -> TokenKind {
+    fn whitespace(&mut self, first: char) -> Kind {
         let mut newline = first == '\n';
         self.skip_while(|c| {
             if c == '\n' {
@@ -116,74 +141,71 @@ impl<'a> Cursor<'a> {
             }
             c.is_whitespace()
         });
-        Whitespace { newline }
+        Kind::WhiteSpace { newline }
     }
 }
 
 impl<'a> Cursor<'a> {
-    fn ident(&mut self) -> TokenKind {
+    fn ident(&mut self) -> Kind {
         self.skip_while(is_ident_continue);
         if !self.first().is_ascii() {
             return self.invalid_ident();
         }
-        Ident
+        Kind::Ident
     }
 
-    fn invalid_ident(&mut self) -> TokenKind {
+    fn invalid_ident(&mut self) -> Kind {
         self.skip_while(char::is_alphanumeric);
-        InvalidIdent
-    }
-
-    fn unknown(&mut self) -> TokenKind {
-        self.skip_while(|c| !c.is_ascii() && c.is_alphanumeric());
-        Unknown
+        Kind::InvalidIdent
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+struct JustZero;
+
 impl<'a> Cursor<'a> {
-    fn parse_number(&mut self, first: char) -> LiteralKind {
-        let base = if first == '0' {
-            // Check special character
-            let base = match self.first() {
-                'b' => Base::Binary,
-                'o' => Base::Octal,
-                'x' => Base::Hexadecimal,
-                // number continue
-                '0'..='9' => Base::Decimal,
-                // Just zero
-                _ => {
-                    return Int {
-                        base: Base::Decimal,
-                        empty: false,
-                    }
-                }
-            };
-            if base != Base::Decimal {
-                // Skip special character
-                self.skip();
+    fn parse_base(&mut self) -> Result<Base, JustZero> {
+        // We've already missed the starting `0`
+        // Check special character
+        let base = match self.first() {
+            'b' => Base::Binary,
+            'o' => Base::Octal,
+            'x' => Base::Hexadecimal,
+            // number continue
+            '0'..='9' => return Ok(Base::Decimal),
+            // Just zero
+            _ => return Err(JustZero),
+        };
+        // Skip special character
+        self.skip();
+        Ok(base)
+    }
+
+    fn parse_number(&mut self, base: Base) -> LitKind {
+        // We already have at least one number
+        if matches!(base, Base::Decimal) {
+            self.skip_decimal();
+        } else {
+            if matches!(self.skip_hex(), HasDigits::No) {
+                return LitKind::empty_int();
             }
-            base
-        } else {
-            Base::Decimal
-        };
-
-        let has_digits = if base <= Base::Decimal {
-            self.skip_decimal()
-        } else {
-            self.skip_hex()
-        };
-
-        if base != Base::Decimal && matches!(has_digits, HasDigits::No) {
-            return Int { base, empty: true };
         }
+        self.parse_maybe_float(base)
+    }
 
+    fn parse_decimal_number(&mut self) -> LitKind {
+        self.skip_decimal();
+        self.parse_maybe_float(Base::Decimal)
+    }
+
+    fn parse_maybe_float(&mut self, base: Base) -> LitKind {
         let [first, second] = self.two();
         if first == '.' && second != '.' && !second.is_ascii_alphabetic() {
             self.skip();
             self.skip_decimal();
-            Float { base }
+            LitKind::Float { base }
         } else {
-            Int { base, empty: false }
+            LitKind::Int { base, empty: false }
         }
     }
 }
@@ -199,13 +221,11 @@ impl<'a> Cursor<'a> {
         let mut has_digits = HasDigits::No;
         loop {
             match self.first() {
-                '_' => self.skip(),
-                '0'..='9' => {
-                    has_digits = HasDigits::Yes;
-                    self.skip();
-                }
+                '0'..='9' => has_digits = HasDigits::Yes,
+                '_' => (),
                 _ => break,
             }
+            self.skip();
         }
         has_digits
     }
@@ -214,26 +234,24 @@ impl<'a> Cursor<'a> {
         let mut has_digits = HasDigits::No;
         loop {
             match self.first() {
-                '_' => self.skip(),
-                '0'..='9' | 'a'..='f' | 'A'..='F' => {
-                    has_digits = HasDigits::Yes;
-                    self.skip();
-                }
+                '0'..='9' | 'a'..='f' | 'A'..='F' => has_digits = HasDigits::Yes,
+                '_' => (),
                 _ => break,
             }
+            self.skip();
         }
         has_digits
     }
 }
 
 impl<'a> Cursor<'a> {
-    fn char(&mut self) -> LiteralKind {
+    fn char(&mut self) -> LitKind {
         if self.second() == '\'' && self.first() != '\\' {
             // skip char
             self.skip();
             // skip '\''
             self.skip();
-            return Char { terminated: true };
+            return LitKind::Char { terminated: true };
         }
 
         loop {
@@ -245,7 +263,7 @@ impl<'a> Cursor<'a> {
                 // end '\''
                 '\'' => {
                     self.skip();
-                    return Char { terminated: true };
+                    return LitKind::Char { terminated: true };
                 }
                 // newline is not supported
                 '\n' => break,
@@ -259,10 +277,10 @@ impl<'a> Cursor<'a> {
             }
         }
 
-        Char { terminated: false }
+        LitKind::Char { terminated: false }
     }
 
-    fn str(&mut self) -> LiteralKind {
+    fn str(&mut self) -> LitKind {
         loop {
             if self.is_eof() {
                 break;
@@ -272,7 +290,7 @@ impl<'a> Cursor<'a> {
                 // end `"`
                 '"' => {
                     self.skip();
-                    return Char { terminated: true };
+                    return LitKind::Str { terminated: true };
                 }
                 // escaped character
                 '\\' => {
@@ -284,17 +302,14 @@ impl<'a> Cursor<'a> {
             }
         }
 
-        Str { terminated: false }
+        LitKind::Str { terminated: false }
     }
 }
 
 impl<'a> Cursor<'a> {
-    pub fn token_len(&self) -> u32 {
-        (self.remaining_len - self.chars.as_str().len()) as u32
-    }
-
-    pub fn reset_token_len(&mut self) {
-        self.remaining_len = self.chars.as_str().len();
+    fn unknown(&mut self) -> Kind {
+        self.skip_while(|c| !c.is_ascii() && c.is_alphanumeric());
+        Kind::Unknown
     }
 }
 
@@ -309,7 +324,7 @@ impl<'a> Cursor<'a> {
     }
 
     pub fn is_eof(&self) -> bool {
-        self.chars.as_str().is_empty()
+        self.0.as_str().is_empty()
     }
 }
 
@@ -317,13 +332,13 @@ impl<'a> Cursor<'a> {
     /// Returns the first character and moving to the next character.
     #[inline]
     pub fn next(&mut self) -> Option<char> {
-        self.chars.next()
+        self.0.next()
     }
 
     /// Returns the first character without moving to the next character.
     #[inline]
     pub fn peek(&mut self) -> Option<char> {
-        self.chars.clone().next()
+        self.0.clone().next()
     }
 }
 
@@ -354,22 +369,16 @@ impl<'a> Cursor<'a> {
     }
 
     pub fn second(&self) -> char {
-        let mut chars = self.chars.clone();
+        let mut chars = self.0.clone();
         chars.next();
         chars.next().unwrap_or(EOF)
     }
 
     pub fn two(&mut self) -> [char; 2] {
-        let mut chars = self.chars.clone();
+        let mut chars = self.0.clone();
         let first = chars.next().unwrap_or(EOF);
         let second = chars.next().unwrap_or(EOF);
         [first, second]
-    }
-
-    pub fn third(&self) -> char {
-        let mut chars = self.chars.clone();
-        chars.next();
-        chars.next().unwrap_or(EOF)
     }
 }
 
@@ -398,15 +407,7 @@ fn is_ident_continue(c: char) -> bool {
 
 #[test]
 fn test() {
-    let source = r#"
-/// Docs 1
-/// Docs 2
-/* Block comment */
-fn pretty_fun() {
-    println!("Pretty fun!");
-}
-"#;
-    let source = r#"1;"#;
+    let source = r#"a * b + c"#.trim();
     let mut cursor = Cursor::new(source);
     let mut index = 0;
     loop {
@@ -414,7 +415,7 @@ fn pretty_fun() {
         let end = index + token.len as usize;
         let span = index..end;
         println!("{:?} {:?}", token.kind, &source[span]);
-        if let Eof = token.kind {
+        if let Kind::Eof = token.kind {
             break;
         }
         index = end;

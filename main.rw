@@ -1,0 +1,13 @@
+const IS_KNIGHT: bool = false;
+const IS_WIZARD: bool = true;
+
+let mut health = if IS_KNIGHT {
+    125
+} else if IS_WIZARD {
+    75
+} else {
+    100
+};
+
+const damage = 25 + 5; 
+health -= damage;

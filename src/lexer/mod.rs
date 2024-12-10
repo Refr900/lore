@@ -1,10 +1,16 @@
 use crate::cursor::{self, Cursor};
 
 mod macros;
-pub(super) use macros::*;
+pub(crate) use macros::*;
 
 mod token;
 pub use token::*;
+
+mod span;
+pub use span::*;
+
+mod location;
+pub use location::*;
 
 #[derive(Debug, Clone)]
 pub struct Lexer<'a> {
@@ -35,13 +41,6 @@ pub enum LexerErrorKind {
     UnterminatedChar,
 }
 
-/*
- * let source = "0b0100u4 * 0b0100u4"; // Debug -> panic!, Release -> UB (Wrapping)
- * let source = "0b0100u4 *% 0b0100u4"; // Wrapping
- * let source = "0b0100u4 *# 0b0100u4"; // Always panic!
- * let source = "0b0100u4 *? 0b0100u4"; // Return Result
- */
-
 impl<'a> Lexer<'a> {
     pub fn new(source: &'a str) -> Self {
         Self {
@@ -57,7 +56,7 @@ impl<'a> Lexer<'a> {
         let mut tokens = Vec::new();
         loop {
             let token = lexer.advance_token();
-            if let TokenKind::Eof = token.kind {
+            if let Kind::Eof = token.kind {
                 break;
             } else {
                 tokens.push(token);
@@ -71,12 +70,12 @@ impl<'a> Lexer<'a> {
     pub fn advance_token(&mut self) -> Token {
         macro_rules! match_next {
             {
-                $($cursor:path => $kind:expr),+;
+                $([$($cursor:tt)*] => $kind:expr),+,
                 _ => $default_kind:expr $(,)?
             } => {
                 match self.first().kind {
                     $(
-                        $cursor => {
+                        cursor::Kind![$($cursor)*] => {
                             self.skip();
                             $kind
                         }
@@ -85,150 +84,185 @@ impl<'a> Lexer<'a> {
                 }
             };
         }
-
-        macro_rules! bin_op {
-            ($op:path) => {{
-                if let cursor::Eq = self.first().kind {
+        
+        macro_rules! assign_or_binary {
+            (@inner 
+                assign: $assign:expr, 
+                binary: $binary:expr $(,)?
+            ) => {{
+                if let cursor::Kind![=] = self.first().kind {
                     self.skip();
-                    TokenKind::BinaryEq($op)
+                    Kind::Operator(Operator::Assign($assign))
                 } else {
-                    TokenKind::Binary($op)
+                    Kind::Operator(Operator::Binary($binary))
                 }
             }};
+            [$($tt:tt)*] => { 
+                assign_or_binary!(@inner 
+                    assign: AssignKind![$($tt)*], 
+                    binary: BinaryKind![$($tt)*],
+                )
+            };
         }
-
+        
         let kind = loop {
             let token = self.next();
-            if let cursor::Eof = token.kind {
-                return Token::new(TokenKind::Eof, self.span);
+            if let cursor::Kind::Eof = token.kind {
+                return Token::new(Kind::Eof, self.span);
             }
             break match token.kind {
-                cursor::Whitespace { .. } | cursor::LineComment | cursor::BlockComment { .. } => {
+                cursor::Kind::LineComment
+                | cursor::Kind::BlockComment { .. }
+                | cursor::Kind::WhiteSpace { .. } => {
                     self.span.consume();
                     continue;
                 }
-                cursor::Docs => TokenKind::Docs,
-                cursor::Ident => match self.lexeme() {
-                    "pub" => TokenKind::Keyword(Keyword::Pub),
-                    "let" => TokenKind::Keyword(Keyword::Let),
-                    "const" => TokenKind::Keyword(Keyword::Const),
-                    "mut" => TokenKind::Keyword(Keyword::Mut),
-                    "if" => TokenKind::Keyword(Keyword::If),
-                    "else" => TokenKind::Keyword(Keyword::Else),
-                    "while" => TokenKind::Keyword(Keyword::While),
-                    "for" => TokenKind::Keyword(Keyword::For),
-                    "in" => TokenKind::Keyword(Keyword::In),
-                    "fn" => TokenKind::Keyword(Keyword::Fn),
-                    "false" | "true" => TokenKind::Literal(Literal::bool()),
-                    _ => TokenKind::Ident,
+                cursor::Kind::Docs => Kind::Docs,
+                cursor::Kind::Ident => self.parse_ident(),
+                cursor::Kind::InvalidIdent => self.parse_invalid_ident(),
+                cursor::Kind::Lit(kind) => self.parse_lit(kind),
+                cursor::Kind![;] => Kind![;],
+                cursor::Kind![:] => match_next! {
+                    [:] => Kind![::],
+                    _   => Kind![:],
                 },
-                cursor::InvalidIdent => {
-                    self.push_error(LexerErrorKind::InvalidIdent);
-                    TokenKind::Ident
-                }
-                cursor::Literal(kind) => {
-                    let kind = match kind {
-                        cursor::Int { base, empty } => {
-                            if empty {
-                                self.push_error(LexerErrorKind::EmptyInt);
-                            }
-                            LiteralKind::Int { base }
-                        }
-                        cursor::Float { base } => LiteralKind::Float { base },
-                        cursor::Char { terminated } => {
-                            if !terminated {
-                                self.push_error(LexerErrorKind::UnterminatedChar);
-                            }
-                            LiteralKind::Char
-                        }
-                        cursor::Str { terminated } => {
-                            if !terminated {
-                                self.push_error(LexerErrorKind::UnterminatedStr);
-                            }
-                            LiteralKind::Str
-                        }
-                    };
-                    let first = self.first();
-                    let suffix_len = match first.kind {
-                        cursor::Ident => {
-                            self.skip();
-                            first.len
-                        }
-                        cursor::InvalidIdent => {
-                            self.skip();
-                            self.push_error(LexerErrorKind::InvalidSuffix);
-                            first.len
-                        }
-                        _ => 0,
-                    };
-                    TokenKind::Literal(Literal { kind, suffix_len })
-                }
-                cursor::Semi => TokenKind::Semi,
-                cursor::Colon => match_next! {
-                    cursor::Colon => TokenKind::PathSep;
-                    _ => TokenKind::Colon,
+                cursor::Kind![,] => Kind![,],
+                cursor::Kind![.] => match_next! {
+                    [.] => match_next! {
+                        [.] => Kind![...],
+                        [=] => Kind![..=],
+                        _   => Kind![..],
+                    },
+                    _ => Kind![.],
                 },
-                cursor::Comma => TokenKind::Comma,
-                cursor::Dot => match_next! {
-                    cursor::Dot => match_next! {
-                        cursor::Dot => TokenKind::DotDotDot,
-                        cursor::Eq => TokenKind::DotDotEq;
-                        _ => TokenKind::DotDot,
-                    };
-                    _ => TokenKind::Dot,
+                cursor::Kind![@] => Kind![@],
+                cursor::Kind![#] => Kind![#],
+                cursor::Kind![~] => Kind![~],
+                cursor::Kind![?] => Kind![?],
+                cursor::Kind![$] => Kind![$],
+                cursor::Kind![=] => match_next! {
+                    [=] => Kind![==],
+                    [>] => Kind![=>],
+                    _   => Kind![=],
                 },
-                cursor::At => TokenKind::At,
-                cursor::Pound => TokenKind::Pound,
-                cursor::Tilde => TokenKind::Tilde,
-                cursor::Question => TokenKind::Question,
-                cursor::Dollar => TokenKind::Dollar,
-                cursor::Eq => match_next! {
-                    cursor::Eq => TokenKind::EqEq,
-                    cursor::Gt => TokenKind::FatArrow;
-                    _ => TokenKind::Eq,
+                cursor::Kind![!] => match_next! {
+                    [=] => Kind![!=],
+                    _   => Kind![!],
                 },
-                cursor::Bang => match_next! {
-                    cursor::Eq => TokenKind::Ne;
-                    _ => TokenKind::Not,
+                cursor::Kind![<] => match_next! {
+                    [=] => Kind![<=],
+                    _   => Kind![<],
                 },
-                cursor::Lt => match_next! {
-                    cursor::Eq => TokenKind::Le;
-                    _ => TokenKind::Lt,
+                cursor::Kind![>] => match_next! {
+                    [=] => Kind![>=],
+                    _   => Kind![>],
                 },
-                cursor::Gt => match_next! {
-                    cursor::Eq => TokenKind::Ge;
-                    _ => TokenKind::Gt,
+                cursor::Kind![&] => match_next! {
+                    [&] => Kind![&&],
+                    _ => assign_or_binary![&],
                 },
-                cursor::And => match_next! {
-                    cursor::And => TokenKind::AndAnd;
-                    _ => bin_op!(BinaryToken::And),
+                cursor::Kind![|] => match_next! {
+                    [|] => Kind![||],
+                    _ => assign_or_binary![|],
                 },
-                cursor::Or => match_next! {
-                    cursor::Or => TokenKind::OrOr;
-                    _ => bin_op!(BinaryToken::Or),
+                cursor::Kind![+] => assign_or_binary![+],
+                cursor::Kind![-] => match_next! {
+                    [>] => Kind![->],
+                    _ => assign_or_binary![-],
                 },
-                cursor::Plus => bin_op!(BinaryToken::Plus),
-                cursor::Minus => match_next! {
-                    cursor::Gt => TokenKind::RArrow;
-                    _ => bin_op!(BinaryToken::Minus),
-                },
-                cursor::Star => bin_op!(BinaryToken::Star),
-                cursor::Slash => bin_op!(BinaryToken::Slash),
-                cursor::Caret => bin_op!(BinaryToken::Caret),
-                cursor::Percent => bin_op!(BinaryToken::Percent),
-                cursor::OpenParen => TokenKind::OpenDelim(Delimiter::Paren),
-                cursor::CloseParen => TokenKind::CloseDelim(Delimiter::Paren),
-                cursor::OpenBrace => TokenKind::OpenDelim(Delimiter::Brace),
-                cursor::CloseBrace => TokenKind::CloseDelim(Delimiter::Brace),
-                cursor::OpenBracket => TokenKind::OpenDelim(Delimiter::Bracket),
-                cursor::CloseBracket => TokenKind::CloseDelim(Delimiter::Bracket),
-                cursor::Unknown => TokenKind::Unknown,
-                cursor::Eof => unreachable!(),
+                cursor::Kind![*] => assign_or_binary![*],
+                cursor::Kind![/] => assign_or_binary![/],
+                cursor::Kind![^] => assign_or_binary![^],
+                cursor::Kind![%] => assign_or_binary![%],
+                cursor::Kind!['('] => Kind!['('],
+                cursor::Kind![')'] => Kind![')'],
+                cursor::Kind!['{'] => Kind!['{'],
+                cursor::Kind!['}'] => Kind!['}'],
+                cursor::Kind!['['] => Kind!['['],
+                cursor::Kind![']'] => Kind![']'],
+                cursor::Kind::Unknown => Kind::Unknown,
+                cursor::Kind::Eof => unreachable!(),
             };
         };
         let token = Token::new(kind, self.span);
         self.span.consume();
         token
+    }
+}
+
+impl<'a> Lexer<'a> {
+    // fn parse_space(&mut self) -> Kind {
+    //     self.skip_while(|token| {
+    //         matches!(
+    //             token.kind,
+    //             cursor::Kind::LineComment
+    //                 | cursor::Kind::BlockComment { .. }
+    //                 | cursor::Kind::WhiteSpace { .. }
+    //         )
+    //     });
+    //     Kind::Space
+    // }
+
+    fn parse_ident(&mut self) -> Kind {
+        match self.lexeme() {
+            "pub" => Kind::Keyword(Keyword::Pub),
+            "let" => Kind::Keyword(Keyword::Let),
+            "const" => Kind::Keyword(Keyword::Const),
+            "mut" => Kind::Keyword(Keyword::Mut),
+            "if" => Kind::Keyword(Keyword::If),
+            "else" => Kind::Keyword(Keyword::Else),
+            "while" => Kind::Keyword(Keyword::While),
+            "for" => Kind::Keyword(Keyword::For),
+            "in" => Kind::Keyword(Keyword::In),
+            "fn" => Kind::Keyword(Keyword::Fn),
+            "false" | "true" => Kind::Literal(Literal::bool()),
+            _ => Kind::Ident,
+        }
+    }
+
+    fn parse_invalid_ident(&mut self) -> Kind {
+        self.push_error(LexerErrorKind::InvalidIdent);
+        // return valid ident for parser
+        Kind::Ident
+    }
+
+    fn parse_lit(&mut self, kind: cursor::LitKind) -> Kind {
+        let kind = match kind {
+            cursor::LitKind::Int { base, empty } => {
+                if empty {
+                    self.push_error(LexerErrorKind::EmptyInt);
+                }
+                LiteralKind::Int { base }
+            }
+            cursor::LitKind::Float { base } => LiteralKind::Float { base },
+            cursor::LitKind::Char { terminated } => {
+                if !terminated {
+                    self.push_error(LexerErrorKind::UnterminatedChar);
+                }
+                LiteralKind::Char
+            }
+            cursor::LitKind::Str { terminated } => {
+                if !terminated {
+                    self.push_error(LexerErrorKind::UnterminatedStr);
+                }
+                LiteralKind::Str
+            }
+        };
+        let first = self.first();
+        let suffix_len = match first.kind {
+            cursor::Kind::Ident => {
+                self.skip();
+                first.len
+            }
+            cursor::Kind::InvalidIdent => {
+                self.skip();
+                self.push_error(LexerErrorKind::InvalidSuffix);
+                first.len
+            }
+            _ => 0,
+        };
+        let suffix_len = suffix_len.try_into().unwrap();
+        Kind::Literal(Literal { kind, suffix_len })
     }
 }
 
@@ -239,16 +273,16 @@ impl<'a> Lexer<'a> {
 }
 
 impl<'a> Lexer<'a> {
-    pub fn skip_while<F>(&mut self, mut predicate: F)
+    fn skip_while<F>(&mut self, mut predicate: F)
     where
         F: FnMut(cursor::Token) -> bool,
     {
         while !self.is_eof() && predicate(self.first()) {
-            self.next();
+            self.skip();
         }
     }
 
-    pub fn is_eof(&self) -> bool {
+    fn is_eof(&self) -> bool {
         self.cursor.is_eof()
     }
 }
@@ -273,31 +307,47 @@ impl<'a> Lexer<'a> {
     fn first(&self) -> cursor::Token {
         self.cursor.clone().advance_token()
     }
+
+    pub fn two(&mut self) -> [cursor::Token; 2] {
+        let mut cursor = self.cursor.clone();
+        let first = cursor.advance_token();
+        let second = cursor.advance_token();
+        [first, second]
+    }
 }
 
 #[test]
 fn test() {
-    let source = r#"while true { ... }"#;
+    let source = r#"
+const MAX_HEALTH = 100.0 * 1.2;
+// Comment 1
+// Comment 2
+// Comment 3
+/* Block Comment */
+fn main() {
+    let mut health = MAX_HEALTH - 10 * 2;
+    let damage = 25.0;
+    let debaff = 1.25;
+    health -= damage * debaff
+    print(health);
+}
+"#
+    .trim();
     let mut lexer = Lexer::new(source);
     let mut count = 1u32;
     loop {
         let token = lexer.advance_token();
         let lexeme = &source[token.span.as_range()];
-        if let TokenKind::Literal(lit) = token.kind {
-            println!("{:>4}: {:?}", count, token.kind);
-            println!("    |  span: {:?}", token.span.as_range());
-            println!("    |  lexeme: {:?}", lexeme);
-        } else {
-            println!("{:>4}: {:?}", count, token.kind);
-            println!("    |  span: {:?}", token.span.as_range());
-            println!("    |  lexeme: {:?}", lexeme);
-        }
+        println!("{:>4}: {:?}", count, token.kind);
+        println!("    |  span: {:?}", token.span.as_range());
+        println!("    |  lexeme: {:?}", lexeme);
 
-        if let TokenKind::Eof = token.kind {
+        if let Kind::Eof = token.kind {
             break;
         }
         count += 1;
     }
+
     println!();
     for error in lexer.errors.iter() {
         let span = error.span.as_range();

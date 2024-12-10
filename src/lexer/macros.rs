@@ -1,56 +1,146 @@
-macro_rules! Token {
-    [=]     => { $crate::lexer::TokenKind::Eq };
-    // Logical
-    [==]    => { $crate::lexer::TokenKind::EqEq };
-    [!=]    => { $crate::lexer::TokenKind::Ne };
-    [<]     => { $crate::lexer::TokenKind::Lt };
-    [>]     => { $crate::lexer::TokenKind::Gt };
-    [<=]    => { $crate::lexer::TokenKind::Le };
-    [>=]    => { $crate::lexer::TokenKind::Ge };
-    [&&]    => { $crate::lexer::TokenKind::AndAnd };
-    [||]    => { $crate::lexer::TokenKind::OrOr };
-    [!]     => { $crate::lexer::TokenKind::Not };
+macro_rules! Kind {
     // Punctuation
-    [.]     => { $crate::lexer::TokenKind::Dot };
-    [..]    => { $crate::lexer::TokenKind::DotDot };
-    [...]   => { $crate::lexer::TokenKind::DotDotDot };
-    [..=]   => { $crate::lexer::TokenKind::DotDotEq };
-    [,]     => { $crate::lexer::TokenKind::Comma };
-    [;]     => { $crate::lexer::TokenKind::Semi };
-    [:]     => { $crate::lexer::TokenKind::Colon };
+    [;]     => { $crate::lexer::Kind::Semi };
+    [,]     => { $crate::lexer::Kind::Comma };
+    [@]     => { $crate::lexer::Kind::At };
+    [#]     => { $crate::lexer::Kind::Pound };
+    [~]     => { $crate::lexer::Kind::Tilde };
+    [?]     => { $crate::lexer::Kind::Question };
+    [$]     => { $crate::lexer::Kind::Dollar };
+    [:]     => { $crate::lexer::Kind::Colon };
+    [.]     => { $crate::lexer::Kind::Dot };
+    [..]    => { $crate::lexer::Kind::DotDot };
+    [...]   => { $crate::lexer::Kind::DotDotDot };
+    [..=]   => { $crate::lexer::Kind::DotDotEq };
     // Custom punctuation
-    [::]    => { $crate::lexer::TokenKind::PathSep };
-    [->]    => { $crate::lexer::TokenKind::RArrow };
-    [=>]    => { $crate::lexer::TokenKind::FatArrow };
-    // Binary operators
-    [+]     => { $crate::lexer::TokenKind::Binary($crate::lexer::BinaryToken::Plus) };
-    [-]     => { $crate::lexer::TokenKind::Binary($crate::lexer::BinaryToken::Minus) };
-    [*]     => { $crate::lexer::TokenKind::Binary($crate::lexer::BinaryToken::Star) };
-    [/]     => { $crate::lexer::TokenKind::Binary($crate::lexer::BinaryToken::Slash) };
-    [%]     => { $crate::lexer::TokenKind::Binary($crate::lexer::BinaryToken::Percent) };
-    [^]     => { $crate::lexer::TokenKind::Binary($crate::lexer::BinaryToken::Caret) };
-    [&]     => { $crate::lexer::TokenKind::Binary($crate::lexer::BinaryToken::And) };
-    [|]     => { $crate::lexer::TokenKind::Binary($crate::lexer::BinaryToken::Or) };
-    [<<]    => { $crate::lexer::TokenKind::Binary($crate::lexer::BinaryToken::Shl) };
-    [>>]    => { $crate::lexer::TokenKind::Binary($crate::lexer::BinaryToken::Shr) };
+    [::]    => { $crate::lexer::Kind::PathSep };
+    [->]    => { $crate::lexer::Kind::RArrow };
+    [=>]    => { $crate::lexer::Kind::FatArrow };
+    // Operators
+    [=]     => { $crate::lexer::Kind::Operator($crate::lexer::Operator![=]) };
+    [!]     => { $crate::lexer::Kind::Operator($crate::lexer::Operator![!]) };
+    // Binary
+    [+]     => { $crate::lexer::Kind::Operator($crate::lexer::Operator![+]) };
+    [-]     => { $crate::lexer::Kind::Operator($crate::lexer::Operator![-]) };
+    [*]     => { $crate::lexer::Kind::Operator($crate::lexer::Operator![*]) };
+    [/]     => { $crate::lexer::Kind::Operator($crate::lexer::Operator![/]) };
+    [%]     => { $crate::lexer::Kind::Operator($crate::lexer::Operator![%]) };
+    [^]     => { $crate::lexer::Kind::Operator($crate::lexer::Operator![^]) };
+    [|]     => { $crate::lexer::Kind::Operator($crate::lexer::Operator![|]) };
+    [&]     => { $crate::lexer::Kind::Operator($crate::lexer::Operator![&]) };
+    [<<]    => { $crate::lexer::Kind::Operator($crate::lexer::Operator![<<]) };
+    [>>]    => { $crate::lexer::Kind::Operator($crate::lexer::Operator![>>]) };
+    // Assign
+    [+=]    => { $crate::lexer::Kind::Operator($crate::lexer::Operator![+=]) };
+    [-=]    => { $crate::lexer::Kind::Operator($crate::lexer::Operator![-=]) };
+    [*=]    => { $crate::lexer::Kind::Operator($crate::lexer::Operator![*=]) };
+    [/=]    => { $crate::lexer::Kind::Operator($crate::lexer::Operator![/=]) };
+    [%=]    => { $crate::lexer::Kind::Operator($crate::lexer::Operator![%=]) };
+    [^=]    => { $crate::lexer::Kind::Operator($crate::lexer::Operator![^=]) };
+    [|=]    => { $crate::lexer::Kind::Operator($crate::lexer::Operator![|=]) };
+    [&=]    => { $crate::lexer::Kind::Operator($crate::lexer::Operator![&=]) };
+    [<<=]   => { $crate::lexer::Kind::Operator($crate::lexer::Operator![<<=]) };
+    [>>=]   => { $crate::lexer::Kind::Operator($crate::lexer::Operator![>>=]) };
+    // Logical
+    [==]    => { $crate::lexer::Kind::Operator($crate::lexer::Operator![==]) };
+    [!=]    => { $crate::lexer::Kind::Operator($crate::lexer::Operator![!=]) };
+    [<]     => { $crate::lexer::Kind::Operator($crate::lexer::Operator![<]) };
+    [>]     => { $crate::lexer::Kind::Operator($crate::lexer::Operator![>]) };
+    [<=]    => { $crate::lexer::Kind::Operator($crate::lexer::Operator![<=]) };
+    [>=]    => { $crate::lexer::Kind::Operator($crate::lexer::Operator![>=]) };
+    [&&]    => { $crate::lexer::Kind::Operator($crate::lexer::Operator![&&]) };
+    [||]    => { $crate::lexer::Kind::Operator($crate::lexer::Operator![||]) };
     // Delimiters
-    ['(']   => { $crate::lexer::TokenKind::OpenDelim($crate::lexer::Delimiter::Paren) };
-    [')']   => { $crate::lexer::TokenKind::CloseDelim($crate::lexer::Delimiter::Paren) };
-    ['{']   => { $crate::lexer::TokenKind::OpenDelim($crate::lexer::Delimiter::Brace) };
-    ['}']   => { $crate::lexer::TokenKind::CloseDelim($crate::lexer::Delimiter::Brace) };
-    ['[']   => { $crate::lexer::TokenKind::OpenDelim($crate::lexer::Delimiter::Bracket) };
-    [']']   => { $crate::lexer::TokenKind::CloseDelim($crate::lexer::Delimiter::Bracket) };
+    ['(']   => { $crate::lexer::Kind::OpenDelim($crate::lexer::Delimiter::Paren) };
+    ['{']   => { $crate::lexer::Kind::OpenDelim($crate::lexer::Delimiter::Brace) };
+    ['[']   => { $crate::lexer::Kind::OpenDelim($crate::lexer::Delimiter::Bracket) };
+    [')']   => { $crate::lexer::Kind::CloseDelim($crate::lexer::Delimiter::Paren) };
+    ['}']   => { $crate::lexer::Kind::CloseDelim($crate::lexer::Delimiter::Brace) };
+    [']']   => { $crate::lexer::Kind::CloseDelim($crate::lexer::Delimiter::Bracket) };
     // Keywords
-    [pub]   => { $crate::lexer::TokenKind::Keyword(Keyword::Pub) };
-    [let]   => { $crate::lexer::TokenKind::Keyword(Keyword::Let) };
-    [const] => { $crate::lexer::TokenKind::Keyword(Keyword::Const) };
-    [mut]   => { $crate::lexer::TokenKind::Keyword(Keyword::Mut) };
-    [if]    => { $crate::lexer::TokenKind::Keyword(Keyword::If) };
-    [else]  => { $crate::lexer::TokenKind::Keyword(Keyword::Else) };
-    [while] => { $crate::lexer::TokenKind::Keyword(Keyword::While) };
-    [for]   => { $crate::lexer::TokenKind::Keyword(Keyword::For) };
-    [in]    => { $crate::lexer::TokenKind::Keyword(Keyword::In) };
-    [fn]    => { $crate::lexer::TokenKind::Keyword(Keyword::Fn) };
+    [pub]   => { $crate::lexer::Kind::Keyword($crate::lexer::Keyword::Pub) };
+    [let]   => { $crate::lexer::Kind::Keyword($crate::lexer::Keyword::Let) };
+    [const] => { $crate::lexer::Kind::Keyword($crate::lexer::Keyword::Const) };
+    [mut]   => { $crate::lexer::Kind::Keyword($crate::lexer::Keyword::Mut) };
+    [if]    => { $crate::lexer::Kind::Keyword($crate::lexer::Keyword::If) };
+    [else]  => { $crate::lexer::Kind::Keyword($crate::lexer::Keyword::Else) };
+    [while] => { $crate::lexer::Kind::Keyword($crate::lexer::Keyword::While) };
+    [for]   => { $crate::lexer::Kind::Keyword($crate::lexer::Keyword::For) };
+    [in]    => { $crate::lexer::Kind::Keyword($crate::lexer::Keyword::In) };
+    [fn]    => { $crate::lexer::Kind::Keyword($crate::lexer::Keyword::Fn) };
 }
 
-pub(crate) use Token;
+macro_rules! Operator {
+    [!]     => { $crate::lexer::Operator::Not };
+    // Binary
+    [+]     => { $crate::lexer::Operator::Binary($crate::lexer::BinaryKind![+])};
+    [-]     => { $crate::lexer::Operator::Binary($crate::lexer::BinaryKind![-])};
+    [*]     => { $crate::lexer::Operator::Binary($crate::lexer::BinaryKind![*])};
+    [/]     => { $crate::lexer::Operator::Binary($crate::lexer::BinaryKind![/])};
+    [%]     => { $crate::lexer::Operator::Binary($crate::lexer::BinaryKind![%])};
+    [^]     => { $crate::lexer::Operator::Binary($crate::lexer::BinaryKind![^])};
+    [|]     => { $crate::lexer::Operator::Binary($crate::lexer::BinaryKind![|])};
+    [&]     => { $crate::lexer::Operator::Binary($crate::lexer::BinaryKind![&])};
+    [<<]    => { $crate::lexer::Operator::Binary($crate::lexer::BinaryKind![<<])};
+    [>>]    => { $crate::lexer::Operator::Binary($crate::lexer::BinaryKind![>>])};
+    [==]    => { $crate::lexer::Operator::Binary($crate::lexer::BinaryKind![==]) };
+    [!=]    => { $crate::lexer::Operator::Binary($crate::lexer::BinaryKind![!=]) };
+    [<]     => { $crate::lexer::Operator::Binary($crate::lexer::BinaryKind![<]) };
+    [>]     => { $crate::lexer::Operator::Binary($crate::lexer::BinaryKind![>]) };
+    [<=]    => { $crate::lexer::Operator::Binary($crate::lexer::BinaryKind![<=]) };
+    [>=]    => { $crate::lexer::Operator::Binary($crate::lexer::BinaryKind![>=]) };
+    [&&]    => { $crate::lexer::Operator::Binary($crate::lexer::BinaryKind![&&]) };
+    [||]    => { $crate::lexer::Operator::Binary($crate::lexer::BinaryKind![||]) };
+    // Assign
+    [=]     => { $crate::lexer::Operator::Assign($crate::lexer::AssignKind![=]) };
+    [+=]    => { $crate::lexer::Operator::Assign($crate::lexer::AssignKind![+]) };
+    [-=]    => { $crate::lexer::Operator::Assign($crate::lexer::AssignKind![-]) };
+    [*=]    => { $crate::lexer::Operator::Assign($crate::lexer::AssignKind![*]) };
+    [/=]    => { $crate::lexer::Operator::Assign($crate::lexer::AssignKind![/]) };
+    [%=]    => { $crate::lexer::Operator::Assign($crate::lexer::AssignKind![%]) };
+    [^=]    => { $crate::lexer::Operator::Assign($crate::lexer::AssignKind![^]) };
+    [|=]    => { $crate::lexer::Operator::Assign($crate::lexer::AssignKind![|]) };
+    [&=]    => { $crate::lexer::Operator::Assign($crate::lexer::AssignKind![&]) };
+    [<<=]   => { $crate::lexer::Operator::Assign($crate::lexer::AssignKind![<<]) };
+    [>>=]   => { $crate::lexer::Operator::Assign($crate::lexer::AssignKind![>>]) };
+}
+
+macro_rules! BinaryKind {
+    [+]     => { $crate::lexer::BinaryKind::Plus };
+    [-]     => { $crate::lexer::BinaryKind::Minus };
+    [*]     => { $crate::lexer::BinaryKind::Star };
+    [/]     => { $crate::lexer::BinaryKind::Slash };
+    [%]     => { $crate::lexer::BinaryKind::Percent };
+    [^]     => { $crate::lexer::BinaryKind::Caret };
+    [|]     => { $crate::lexer::BinaryKind::Or };
+    [&]     => { $crate::lexer::BinaryKind::And };
+    [<<]    => { $crate::lexer::BinaryKind::Shl };
+    [>>]    => { $crate::lexer::BinaryKind::Shr };
+    [==]    => { $crate::lexer::BinaryKind::Eq };
+    [!=]    => { $crate::lexer::BinaryKind::Ne };
+    [<]     => { $crate::lexer::BinaryKind::Lt };
+    [>]     => { $crate::lexer::BinaryKind::Gt };
+    [<=]    => { $crate::lexer::BinaryKind::Le };
+    [>=]    => { $crate::lexer::BinaryKind::Ge };
+    [&&]    => { $crate::lexer::BinaryKind::And };
+    [||]    => { $crate::lexer::BinaryKind::Or };
+}
+
+macro_rules! AssignKind {
+    [=]     => { $crate::lexer::AssignKind::Eq };
+    [+]     => { $crate::lexer::AssignKind::Plus };
+    [-]     => { $crate::lexer::AssignKind::Minus };
+    [*]     => { $crate::lexer::AssignKind::Star };
+    [/]     => { $crate::lexer::AssignKind::Slash };
+    [%]     => { $crate::lexer::AssignKind::Percent };
+    [^]     => { $crate::lexer::AssignKind::Caret };
+    [|]     => { $crate::lexer::AssignKind::Or };
+    [&]     => { $crate::lexer::AssignKind::And };
+    [<<]    => { $crate::lexer::AssignKind::Shl };
+    [>>]    => { $crate::lexer::AssignKind::Shr };
+}
+
+pub(crate) use AssignKind;
+pub(crate) use BinaryKind;
+pub(crate) use Kind;
+pub(crate) use Operator;

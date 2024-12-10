@@ -1,61 +1,67 @@
-use crate::lexer::BinaryToken;
+use crate::{
+    lexer::{BinaryKind, Kind, Operator},
+    parser::{CallExt, Parse, ParseError, Parser},
+};
 
 use super::ExprKind;
 
 #[derive(Debug, Clone)]
 pub struct UnaryExpr {
-    pub operators: Vec<UnaryOp>,
+    pub operators: Vec<UnaryKind>,
     pub expr: Box<ExprKind>,
 }
 
 impl UnaryExpr {
-    pub const fn new(operators: Vec<UnaryOp>, expr: Box<ExprKind>) -> Self {
+    pub const fn new(operators: Vec<UnaryKind>, expr: Box<ExprKind>) -> Self {
         Self { operators, expr }
     }
 }
 
+impl Parse for UnaryExpr {
+    type Parsed = ExprKind;
+    type Error = ();
+
+    fn parse(parser: &mut Parser<'_>) -> Result<ExprKind, ()> {
+        let Parser { stream, errors } = parser;
+        let mut operators = Vec::new();
+        loop {
+            let token = match stream.peek() {
+                Ok(token) => token,
+                Err(err) => {
+                    errors.push(err);
+                    break;
+                }
+            };
+            let op = match token.kind {
+                Kind![!] => UnaryKind::Not,
+                Kind![-] => UnaryKind::Minus,
+                _ => match token.kind {
+                    Kind::Ident | Kind::Literal(_) | Kind!['('] | Kind!['{'] | Kind!['}'] => break,
+                    _ => {
+                        errors.push(ParseError::expected_any(&[Kind![!], Kind![-]], token));
+                        stream.skip();
+                        continue;
+                    }
+                },
+            };
+            operators.push(op);
+            stream.skip();
+        }
+
+        let expr = parser.parse_call()?;
+        Ok(if !operators.is_empty() {
+            let unary = UnaryExpr::new(operators, Box::new(expr));
+            ExprKind::Unary(unary)
+        } else {
+            expr
+        })
+    }
+}
+
 #[derive(Debug, Clone)]
-pub enum UnaryOp {
-    // Valid
+pub enum UnaryKind {
     /// `!`
     Not,
     /// `-`
     Minus,
-
-    // Unvalid
-    /// `+`
-    Plus,
-    /// `*`
-    Star,
-    /// `/`
-    Slash,
-    /// `%`
-    Percent,
-    /// `^`
-    Caret,
-    /// `&`
-    And,
-    /// `|`
-    Or,
-    /// `<<`
-    Shl,
-    /// `>>`
-    Shr,
-}
-
-impl UnaryOp {
-    pub fn from_binary(token: BinaryToken) -> Self {
-        match token {
-            BinaryToken::Plus => Self::Plus,
-            BinaryToken::Minus => Self::Minus,
-            BinaryToken::Star => Self::Star,
-            BinaryToken::Slash => Self::Slash,
-            BinaryToken::Percent => Self::Percent,
-            BinaryToken::Caret => Self::Caret,
-            BinaryToken::And => Self::And,
-            BinaryToken::Or => Self::Or,
-            BinaryToken::Shl => Self::Shl,
-            BinaryToken::Shr => Self::Shr,
-        }
-    }
 }
