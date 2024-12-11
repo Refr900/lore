@@ -80,10 +80,12 @@ impl Parse for StmtKind {
             return Ok(Self::Var(var));
         }
 
+        let frame = parser.frame();
         let expr = parser.parse_expression()?;
         let token = parser.peek()?;
 
         if matches!(token.kind, Kind::Assign(_)) {
+            parser.set_frame(frame);
             let assign = match parser.parse_assign() {
                 Ok(assign) => assign,
                 Err(_) => return Err(ParseStmtError::Assign),

@@ -322,7 +322,7 @@ impl core::fmt::Display for ItemKind {
             Self::Expr => write!(f, "expression"),
             Self::Stmt => write!(f, "statement"),
             Self::VarStmt => write!(f, "variable"),
-            Self::AssignStmt => write!(f, "assignment"),
+            Self::AssignStmt => write!(f, "assign"),
             Self::BlockStmt => write!(f, "block"),
             Self::IfStmt => write!(f, "if statement"),
             Self::Fn => write!(f, "function"),
