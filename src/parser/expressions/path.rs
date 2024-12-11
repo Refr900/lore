@@ -1,6 +1,6 @@
 use crate::{
     lexer::{Kind, TokenId},
-    parser::{Parse, Parser, TypePathExt},
+    parser::{ExpectedItem, Item, ItemKind, ItemSequence, Parse, Parser, TypePathExt},
 };
 
 #[derive(Debug, Clone)]
@@ -32,18 +32,22 @@ impl Parse for PathExpr {
 
     fn parse(parser: &mut Parser<'_>) -> Result<Self, ()> {
         let type_path = parser.parse_type_path()?;
-        let Parser { stream, errors } = parser;
-        
         let mut len = 0;
         loop {
-            if stream.expect(Kind![.]).is_err() {
+            if parser.stream.expect(Kind![.]).is_err() {
                 break;
             }
 
-            if let Err(err) = stream.expect(Kind::Ident) {
-                errors.push(err);
+            let token = parser.stream.first();
+            if !matches!(token.kind, Kind::Ident) {
+                parser.push_error(ExpectedItem::here(
+                    ItemSequence::Single(ItemKind::Ident),
+                    Item::from_token(token),
+                ));
                 return Err(());
             }
+            // skip ident
+            parser.stream.skip();
 
             len += 1;
         }

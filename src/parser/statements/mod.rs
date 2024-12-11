@@ -1,4 +1,4 @@
-use crate::lexer::{Kind, Operator};
+use crate::lexer::Kind;
 
 use super::{AssignExt, BlockExt, ExpressionExt, IfExt, VariableExt};
 use super::{ExprKind, Parse, Parser};
@@ -80,22 +80,16 @@ impl Parse for StmtKind {
             return Ok(Self::Var(var));
         }
 
-        let token = parser.with_frame(|parser| {
-            parser.parse_expression()?;
-            parser.peek()
-        })?;
-        if matches!(token.kind, Kind::Operator(Operator::Assign(_))) {
+        let expr = parser.parse_expression()?;
+        let token = parser.peek()?;
+
+        if matches!(token.kind, Kind::Assign(_)) {
             let assign = match parser.parse_assign() {
                 Ok(assign) => assign,
                 Err(_) => return Err(ParseStmtError::Assign),
             };
             return Ok(Self::Assign(assign));
         }
-
-        let expr = match parser.parse_expression() {
-            Ok(expr) => expr,
-            Err(_) => return Err(ParseStmtError::Expr),
-        };
         Ok(Self::Expr(expr))
     }
 }

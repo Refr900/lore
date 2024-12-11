@@ -92,9 +92,9 @@ impl<'a> Lexer<'a> {
             ) => {{
                 if let cursor::Kind![=] = self.first().kind {
                     self.skip();
-                    Kind::Operator(Operator::Assign($assign))
+                    Kind::Assign($assign)
                 } else {
-                    Kind::Operator(Operator::Binary($binary))
+                    Kind::Binary($binary)
                 }
             }};
             [$($tt:tt)*] => { 
@@ -113,7 +113,7 @@ impl<'a> Lexer<'a> {
             break match token.kind {
                 cursor::Kind::LineComment
                 | cursor::Kind::BlockComment { .. }
-                | cursor::Kind::WhiteSpace { .. } => {
+                | cursor::Kind::WhiteSpace { .. } => {                    
                     self.span.consume();
                     continue;
                 }

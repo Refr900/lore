@@ -37,7 +37,6 @@ impl Span {
 impl Span {
     /// # Panics
     /// Panics if source does not contain span
-    #[inline]
     #[track_caller]
     pub fn location(&self, source: &str) -> Location {
         if source.len() < self.end {

@@ -1,6 +1,8 @@
 use crate::{
-    lexer::{BinaryKind, Kind, Operator},
-    parser::{CallExt, Parse, ParseError, Parser},
+    lexer::{Keyword, Kind},
+    parser::{
+        CallExt, ExpectedItem, Item, ItemKind, ItemSequence, Parse, ParseError, Parser, Span,
+    },
 };
 
 use super::ExprKind;
@@ -22,30 +24,49 @@ impl Parse for UnaryExpr {
     type Error = ();
 
     fn parse(parser: &mut Parser<'_>) -> Result<ExprKind, ()> {
-        let Parser { stream, errors } = parser;
         let mut operators = Vec::new();
         loop {
-            let token = match stream.peek() {
-                Ok(token) => token,
-                Err(err) => {
-                    errors.push(err);
-                    break;
-                }
-            };
+            let token = parser.stream.first();
+            if matches!(token.kind, Kind::Eof) {
+                parser.push_error(ParseError::Unexpected(Item::from_token(token)));
+                return Err(());
+            }
+
             let op = match token.kind {
                 Kind![!] => UnaryKind::Not,
                 Kind![-] => UnaryKind::Minus,
                 _ => match token.kind {
-                    Kind::Ident | Kind::Literal(_) | Kind!['('] | Kind!['{'] | Kind!['}'] => break,
+                    Kind!['('] | Kind!['{'] | Kind!['}'] | Kind::Ident | Kind::Literal(_) => break,
+                    Kind::Keyword(keyword) => {
+                        let kind = match keyword {
+                            Keyword::Pub => ItemKind::Stmt,
+                            Keyword::Let => ItemKind::VarStmt,
+                            Keyword::Const => ItemKind::VarStmt,
+                            // TODO: For now mutable references not supported
+                            Keyword::Mut => ItemKind::VarStmt,
+                            Keyword::Else => ItemKind::Stmt,
+                            Keyword::In => ItemKind::Keyword(Keyword::In),
+                            Keyword::Fn => ItemKind::Fn,
+                            Keyword::If | Keyword::While | Keyword::For => break,
+                        };
+                        parser.push_error(ExpectedItem::here(
+                            ItemSequence::Single(ItemKind::Expr),
+                            Item::new(kind, Span::dot(token.id)),
+                        ));
+                        break;
+                    }
                     _ => {
-                        errors.push(ParseError::expected_any(&[Kind![!], Kind![-]], token));
-                        stream.skip();
+                        parser.push_error(ExpectedItem::here(
+                            ItemSequence::Unary,
+                            Item::from_token(token),
+                        ));
+                        parser.stream.skip();
                         continue;
                     }
                 },
             };
             operators.push(op);
-            stream.skip();
+            parser.stream.skip();
         }
 
         let expr = parser.parse_call()?;

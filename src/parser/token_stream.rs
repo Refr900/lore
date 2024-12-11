@@ -1,7 +1,5 @@
 use crate::lexer::{Kind, TokenId};
 
-use super::ParseError;
-
 #[derive(Debug, Clone)]
 pub struct TokenStream<'a> {
     kinds: &'a [Kind],
@@ -38,7 +36,7 @@ impl<'a> TokenStream<'a> {
 }
 
 impl<'a> TokenStream<'a> {
-    pub fn expect_any<'t>(&mut self, kinds: &'t [Kind]) -> Result<Token, ParseError<'t>> {
+    pub fn expect_any(&mut self, kinds: &[Kind]) -> Result<Token, ()> {
         let id = self.current_id();
         let token = self.first();
         for expected in kinds.iter().copied() {
@@ -47,15 +45,15 @@ impl<'a> TokenStream<'a> {
                 return Ok(Token::new(id, token.kind));
             }
         }
-        Err(ParseError::expected_any(kinds, token))
+        Err(())
     }
 
-    pub fn expect(&mut self, kind: Kind) -> Result<TokenId, ParseError<'static>> {
+    pub fn expect(&mut self, kind: Kind) -> Result<TokenId, ()> {
         let found = self.first();
         if found.kind == kind {
             Ok(self.next_id())
         } else {
-            Err(ParseError::expected(kind, found))
+            Err(())
         }
     }
 
@@ -75,10 +73,10 @@ impl<'a> TokenStream<'a> {
         self.first()
     }
 
-    pub fn peek(&self) -> Result<Token, ParseError<'static>> {
+    pub fn peek(&self) -> Result<Token, ()> {
         let token = self.first();
         if let Kind::Eof = token.kind {
-            return Err(ParseError::Unexpected(token));
+            return Err(());
         }
         Ok(token)
     }
@@ -120,7 +118,10 @@ impl<'a> TokenStream<'a> {
     }
 
     pub fn first_kind(&self) -> Kind {
-        self.kinds.get(self.current.as_index()).copied().unwrap_or(Kind::Eof)
+        self.kinds
+            .get(self.current.as_index())
+            .copied()
+            .unwrap_or(Kind::Eof)
     }
 }
 

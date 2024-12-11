@@ -35,6 +35,8 @@ impl TokenId {
 pub enum Kind {
     /// `/// Docs`
     Docs,
+    /// `!`
+    Not,
     /// `~`
     Tilde,
     /// `@`
@@ -68,7 +70,8 @@ pub enum Kind {
     Ident,
     Keyword(Keyword),
     Literal(Literal),
-    Operator(Operator),
+    Binary(BinaryKind),
+    Assign(AssignKind),
     OpenDelim(Delimiter),
     CloseDelim(Delimiter),
     Unknown,
@@ -79,6 +82,7 @@ impl core::fmt::Display for Kind {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             Self::Docs => write!(f, "Docs"),
+            Self::Not => write!(f, "!"),
             Self::Tilde => write!(f, "~"),
             Self::At => write!(f, "@"),
             Self::Dot => write!(f, "."),
@@ -97,7 +101,8 @@ impl core::fmt::Display for Kind {
             Self::Ident => write!(f, "Ident"),
             Self::Keyword(keyword) => write!(f, "{keyword}"),
             Self::Literal(literal) => write!(f, "{literal}"),
-            Self::Operator(operator) => write!(f, "{operator}"),
+            Self::Binary(kind) => write!(f, "{kind}"),
+            Self::Assign(kind) => write!(f, "{kind}"),
             Self::OpenDelim(delim) => {
                 let c = match delim {
                     Delimiter::Paren => '(',
@@ -230,28 +235,6 @@ impl core::fmt::Display for LiteralKind {
 
 // endregion: ----- Literal -----
 
-// region: ----- Operator -----
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Operator {
-    /// `!`
-    Not,
-    // `-`, `/`
-    Binary(BinaryKind),
-    /// `-=`, `/=`
-    Assign(AssignKind),
-}
-
-impl core::fmt::Display for Operator {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        match self {
-            Self::Not => write!(f, "!"),
-            Self::Binary(kind) => write!(f, "{kind}"),
-            Self::Assign(kind) => write!(f, "{kind}"),
-        }
-    }
-}
-
 // region: ----- BinaryKind -----
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -368,8 +351,6 @@ impl core::fmt::Display for AssignKind {
 }
 
 // endregion: ----- AssignKind -----
-
-// endregion: ----- Operator -----
 
 // region: ----- Delimiter -----
 

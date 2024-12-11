@@ -1,6 +1,6 @@
 use crate::{
     lexer::{Kind, TokenId},
-    parser::{Parse, ParseError, Parser},
+    parser::{Item, Parse, ParseError, Parser},
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -11,21 +11,16 @@ impl Parse for LitExpr {
     type Error = ();
 
     fn parse(parser: &mut Parser<'_>) -> Result<Self, ()> {
-        let Parser { stream, errors } = parser;
-        let token = match stream.peek() {
+        let token = match parser.stream.peek() {
             Ok(token) => token,
-            Err(err) => {
-                errors.push(err);
-                return Err(());
-            },
+            Err(_) => return Err(()),
         };
-        
+
         if let Kind::Literal(_) = token.kind {
-            Ok(Self(stream.next_id()))
+            Ok(Self(parser.stream.next_id()))
         } else {
-            errors.push(ParseError::Unexpected(token));
+            parser.push_error(ParseError::Unexpected(Item::from_token(token)));
             Err(())
         }
     }
 }
-

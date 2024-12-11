@@ -17,39 +17,39 @@ macro_rules! Kind {
     [->]    => { $crate::lexer::Kind::RArrow };
     [=>]    => { $crate::lexer::Kind::FatArrow };
     // Operators
-    [=]     => { $crate::lexer::Kind::Operator($crate::lexer::Operator![=]) };
-    [!]     => { $crate::lexer::Kind::Operator($crate::lexer::Operator![!]) };
+    [!]     => { $crate::lexer::Kind::Not };
     // Binary
-    [+]     => { $crate::lexer::Kind::Operator($crate::lexer::Operator![+]) };
-    [-]     => { $crate::lexer::Kind::Operator($crate::lexer::Operator![-]) };
-    [*]     => { $crate::lexer::Kind::Operator($crate::lexer::Operator![*]) };
-    [/]     => { $crate::lexer::Kind::Operator($crate::lexer::Operator![/]) };
-    [%]     => { $crate::lexer::Kind::Operator($crate::lexer::Operator![%]) };
-    [^]     => { $crate::lexer::Kind::Operator($crate::lexer::Operator![^]) };
-    [|]     => { $crate::lexer::Kind::Operator($crate::lexer::Operator![|]) };
-    [&]     => { $crate::lexer::Kind::Operator($crate::lexer::Operator![&]) };
-    [<<]    => { $crate::lexer::Kind::Operator($crate::lexer::Operator![<<]) };
-    [>>]    => { $crate::lexer::Kind::Operator($crate::lexer::Operator![>>]) };
-    // Assign
-    [+=]    => { $crate::lexer::Kind::Operator($crate::lexer::Operator![+=]) };
-    [-=]    => { $crate::lexer::Kind::Operator($crate::lexer::Operator![-=]) };
-    [*=]    => { $crate::lexer::Kind::Operator($crate::lexer::Operator![*=]) };
-    [/=]    => { $crate::lexer::Kind::Operator($crate::lexer::Operator![/=]) };
-    [%=]    => { $crate::lexer::Kind::Operator($crate::lexer::Operator![%=]) };
-    [^=]    => { $crate::lexer::Kind::Operator($crate::lexer::Operator![^=]) };
-    [|=]    => { $crate::lexer::Kind::Operator($crate::lexer::Operator![|=]) };
-    [&=]    => { $crate::lexer::Kind::Operator($crate::lexer::Operator![&=]) };
-    [<<=]   => { $crate::lexer::Kind::Operator($crate::lexer::Operator![<<=]) };
-    [>>=]   => { $crate::lexer::Kind::Operator($crate::lexer::Operator![>>=]) };
+    [+]     => { $crate::lexer::Kind::Binary($crate::lexer::BinaryKind![+])};
+    [-]     => { $crate::lexer::Kind::Binary($crate::lexer::BinaryKind![-])};
+    [*]     => { $crate::lexer::Kind::Binary($crate::lexer::BinaryKind![*])};
+    [/]     => { $crate::lexer::Kind::Binary($crate::lexer::BinaryKind![/])};
+    [%]     => { $crate::lexer::Kind::Binary($crate::lexer::BinaryKind![%])};
+    [^]     => { $crate::lexer::Kind::Binary($crate::lexer::BinaryKind![^])};
+    [|]     => { $crate::lexer::Kind::Binary($crate::lexer::BinaryKind![|])};
+    [&]     => { $crate::lexer::Kind::Binary($crate::lexer::BinaryKind![&])};
+    [<<]    => { $crate::lexer::Kind::Binary($crate::lexer::BinaryKind![<<])};
+    [>>]    => { $crate::lexer::Kind::Binary($crate::lexer::BinaryKind![>>])};
     // Logical
-    [==]    => { $crate::lexer::Kind::Operator($crate::lexer::Operator![==]) };
-    [!=]    => { $crate::lexer::Kind::Operator($crate::lexer::Operator![!=]) };
-    [<]     => { $crate::lexer::Kind::Operator($crate::lexer::Operator![<]) };
-    [>]     => { $crate::lexer::Kind::Operator($crate::lexer::Operator![>]) };
-    [<=]    => { $crate::lexer::Kind::Operator($crate::lexer::Operator![<=]) };
-    [>=]    => { $crate::lexer::Kind::Operator($crate::lexer::Operator![>=]) };
-    [&&]    => { $crate::lexer::Kind::Operator($crate::lexer::Operator![&&]) };
-    [||]    => { $crate::lexer::Kind::Operator($crate::lexer::Operator![||]) };
+    [==]    => { $crate::lexer::Kind::Binary($crate::lexer::BinaryKind![==]) };
+    [!=]    => { $crate::lexer::Kind::Binary($crate::lexer::BinaryKind![!=]) };
+    [<]     => { $crate::lexer::Kind::Binary($crate::lexer::BinaryKind![<]) };
+    [>]     => { $crate::lexer::Kind::Binary($crate::lexer::BinaryKind![>]) };
+    [<=]    => { $crate::lexer::Kind::Binary($crate::lexer::BinaryKind![<=]) };
+    [>=]    => { $crate::lexer::Kind::Binary($crate::lexer::BinaryKind![>=]) };
+    [&&]    => { $crate::lexer::Kind::Binary($crate::lexer::BinaryKind![&&]) };
+    [||]    => { $crate::lexer::Kind::Binary($crate::lexer::BinaryKind![||]) };
+    // Assign
+    [=]     => { $crate::lexer::Kind::Assign($crate::lexer::AssignKind![=]) };
+    [+=]    => { $crate::lexer::Kind::Assign($crate::lexer::AssignKind![+]) };
+    [-=]    => { $crate::lexer::Kind::Assign($crate::lexer::AssignKind![-]) };
+    [*=]    => { $crate::lexer::Kind::Assign($crate::lexer::AssignKind![*]) };
+    [/=]    => { $crate::lexer::Kind::Assign($crate::lexer::AssignKind![/]) };
+    [%=]    => { $crate::lexer::Kind::Assign($crate::lexer::AssignKind![%]) };
+    [^=]    => { $crate::lexer::Kind::Assign($crate::lexer::AssignKind![^]) };
+    [|=]    => { $crate::lexer::Kind::Assign($crate::lexer::AssignKind![|]) };
+    [&=]    => { $crate::lexer::Kind::Assign($crate::lexer::AssignKind![&]) };
+    [<<=]   => { $crate::lexer::Kind::Assign($crate::lexer::AssignKind![<<]) };
+    [>>=]   => { $crate::lexer::Kind::Assign($crate::lexer::AssignKind![>>]) };
     // Delimiters
     ['(']   => { $crate::lexer::Kind::OpenDelim($crate::lexer::Delimiter::Paren) };
     ['{']   => { $crate::lexer::Kind::OpenDelim($crate::lexer::Delimiter::Brace) };
@@ -68,41 +68,6 @@ macro_rules! Kind {
     [for]   => { $crate::lexer::Kind::Keyword($crate::lexer::Keyword::For) };
     [in]    => { $crate::lexer::Kind::Keyword($crate::lexer::Keyword::In) };
     [fn]    => { $crate::lexer::Kind::Keyword($crate::lexer::Keyword::Fn) };
-}
-
-macro_rules! Operator {
-    [!]     => { $crate::lexer::Operator::Not };
-    // Binary
-    [+]     => { $crate::lexer::Operator::Binary($crate::lexer::BinaryKind![+])};
-    [-]     => { $crate::lexer::Operator::Binary($crate::lexer::BinaryKind![-])};
-    [*]     => { $crate::lexer::Operator::Binary($crate::lexer::BinaryKind![*])};
-    [/]     => { $crate::lexer::Operator::Binary($crate::lexer::BinaryKind![/])};
-    [%]     => { $crate::lexer::Operator::Binary($crate::lexer::BinaryKind![%])};
-    [^]     => { $crate::lexer::Operator::Binary($crate::lexer::BinaryKind![^])};
-    [|]     => { $crate::lexer::Operator::Binary($crate::lexer::BinaryKind![|])};
-    [&]     => { $crate::lexer::Operator::Binary($crate::lexer::BinaryKind![&])};
-    [<<]    => { $crate::lexer::Operator::Binary($crate::lexer::BinaryKind![<<])};
-    [>>]    => { $crate::lexer::Operator::Binary($crate::lexer::BinaryKind![>>])};
-    [==]    => { $crate::lexer::Operator::Binary($crate::lexer::BinaryKind![==]) };
-    [!=]    => { $crate::lexer::Operator::Binary($crate::lexer::BinaryKind![!=]) };
-    [<]     => { $crate::lexer::Operator::Binary($crate::lexer::BinaryKind![<]) };
-    [>]     => { $crate::lexer::Operator::Binary($crate::lexer::BinaryKind![>]) };
-    [<=]    => { $crate::lexer::Operator::Binary($crate::lexer::BinaryKind![<=]) };
-    [>=]    => { $crate::lexer::Operator::Binary($crate::lexer::BinaryKind![>=]) };
-    [&&]    => { $crate::lexer::Operator::Binary($crate::lexer::BinaryKind![&&]) };
-    [||]    => { $crate::lexer::Operator::Binary($crate::lexer::BinaryKind![||]) };
-    // Assign
-    [=]     => { $crate::lexer::Operator::Assign($crate::lexer::AssignKind![=]) };
-    [+=]    => { $crate::lexer::Operator::Assign($crate::lexer::AssignKind![+]) };
-    [-=]    => { $crate::lexer::Operator::Assign($crate::lexer::AssignKind![-]) };
-    [*=]    => { $crate::lexer::Operator::Assign($crate::lexer::AssignKind![*]) };
-    [/=]    => { $crate::lexer::Operator::Assign($crate::lexer::AssignKind![/]) };
-    [%=]    => { $crate::lexer::Operator::Assign($crate::lexer::AssignKind![%]) };
-    [^=]    => { $crate::lexer::Operator::Assign($crate::lexer::AssignKind![^]) };
-    [|=]    => { $crate::lexer::Operator::Assign($crate::lexer::AssignKind![|]) };
-    [&=]    => { $crate::lexer::Operator::Assign($crate::lexer::AssignKind![&]) };
-    [<<=]   => { $crate::lexer::Operator::Assign($crate::lexer::AssignKind![<<]) };
-    [>>=]   => { $crate::lexer::Operator::Assign($crate::lexer::AssignKind![>>]) };
 }
 
 macro_rules! BinaryKind {
@@ -143,4 +108,3 @@ macro_rules! AssignKind {
 pub(crate) use AssignKind;
 pub(crate) use BinaryKind;
 pub(crate) use Kind;
-pub(crate) use Operator;

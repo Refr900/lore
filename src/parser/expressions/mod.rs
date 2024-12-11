@@ -16,7 +16,7 @@ pub use type_path::*;
 pub use unary::*;
 pub use value::*;
 
-use super::{BlockStmt, Parse, Parser};
+use super::{AssignStmt, BlockStmt, IfStmt, Parse, Parser, VarStmt};
 
 #[derive(Debug, Clone)]
 pub enum ExprKind {
@@ -24,6 +24,13 @@ pub enum ExprKind {
     Path(PathExpr),
     Unary(UnaryExpr),
     Binary(BinaryExpr),
+    // TODO: Move all (stmt) in Expr
+    // For `if stmt { (stmts)* } else { (stmts)* } * if stmt { (stmts)* } else { (stmts)* }`
+    // It just cool XD
+    // Var(VarStmt),
+    // Assign(AssignStmt),
+    // Block(BlockStmt),
+    // If(IfStmt),
 }
 
 impl Parse for ExprKind {

@@ -1,6 +1,9 @@
 use crate::{
-    lexer::Kind,
-    parser::{ExpressionExt, LitExt, Parse, Parser},
+    lexer::{Delimiter, Kind},
+    parser::{
+        BlockExt, ExpectedItem, ExpressionExt, IfExt, Item, ItemKind, ItemSequence, LitExt, Parse,
+        Parser, StmtKind,
+    },
 };
 
 use super::ExprKind;
@@ -18,8 +21,16 @@ impl Parse for ValueExpr {
             Kind!['('] => {
                 parser.stream.skip();
                 let expr = parser.parse_expression()?;
-                if let Err(err) = parser.stream.expect(Kind![')']) {
-                    parser.errors.push(err);
+                let token = parser.stream.first();
+                match token.kind {
+                    Kind![')'] => parser.stream.skip(),
+                    _ => {
+                        // TODO: create macro like in lexer and cursor modules
+                        let kind = ItemKind::CloseDelim(Delimiter::Paren);
+                        let expected = ItemSequence::Single(kind);
+                        let found = Item::from_token(token);
+                        parser.push_error(ExpectedItem::here(expected, found));
+                    }
                 }
                 expr
             }

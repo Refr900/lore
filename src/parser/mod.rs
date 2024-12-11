@@ -36,12 +36,11 @@ pub trait Parse {
 fn test() {
     let path = "main.rw";
     let source = std::fs::read_to_string(path).unwrap();
-    let source = source.trim();
-    let (kinds, spans) = tokenize(path, source);
+    let (kinds, spans) = tokenize(path, &source);
     let mut parser = Parser::new(&kinds);
     for _ in 0..1 {
-        let _ = parse_with_parser::<Vec<StmtKind>>(&mut parser, &spans, path, source);
-        // parser.errors.clear();
+        let _ = parse_with_parser::<StmtKind>(&mut parser, &spans, path, &source);
+        parser.errors.clear();
     }
 }
 
@@ -78,14 +77,19 @@ where
     P::Error: Debug,
 {
     let parsed = parser.parse::<P>();
-    println!("{:#?}", parsed);
+    if parser.errors.is_empty() {
+        println!("{:#?}", parsed);
+    }
     print_errors(path, source, spans, &parser.errors);
     parsed
 }
 
 fn print_errors(path: &str, source: &str, spans: &[lexer::Span], errors: &[ParseError]) {
     for error in errors.iter() {
-        let span = error.span_in(&spans);
+        let span = error.span();
+        let start = spans[span.start.as_index()].start;
+        let end = spans[span.end.as_index()].start;
+        let span = lexer::Span::new(start, end);
         let location = span.location(source);
         println!("error: {}", error);
         println!("   --> {}:{}", path, location);

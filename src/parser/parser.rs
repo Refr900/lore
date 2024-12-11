@@ -1,11 +1,14 @@
-use crate::lexer::{BinaryKind, Kind, Operator, TokenId};
+use crate::lexer::{BinaryKind, Kind, TokenId};
 
-use super::{BinaryExpr, ExprKind, Parse, ParseError, Token, TokenStream};
+use super::{
+    BinaryExpr, ExpectedItem, ExprKind, Item, ItemKind, ItemSequence, Parse, ParseError, Token,
+    TokenStream,
+};
 
 #[derive(Debug, Clone)]
 pub struct Parser<'a> {
     pub stream: TokenStream<'a>,
-    pub errors: Vec<ParseError<'a>>,
+    pub errors: Vec<ParseError>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -35,6 +38,13 @@ impl<'a> Parser<'a> {
 impl<'a> Parser<'a> {
     pub fn parse<P: Parse>(&mut self) -> Result<P::Parsed, P::Error> {
         P::parse(self)
+    }
+
+    pub fn push_error<E>(&mut self, error: E)
+    where
+        E: Into<ParseError>,
+    {
+        self.errors.push(error.into());
     }
 }
 
@@ -77,14 +87,14 @@ impl<'a> Parser<'a> {
             match token {
                 Token {
                     id: _,
-                    kind: Kind::Operator(Operator::Binary(kind)),
+                    kind: Kind::Binary(kind),
                 } => {
                     let Ok(rhs) = f(self) else {
-                        self.errors.push(ParseError::ExpectedAfter {
-                            expected: Kind::Dollar,
-                            before: token,
-                            found: self.stream.second(),
-                        });
+                        self.push_error(ExpectedItem::after(
+                            // binary operators work with statements
+                            ItemSequence::StmtWithReturnValue,
+                            Item::from_token(self.stream.second()),
+                        ));
                         return Ok(node);
                     };
                     node = ExprKind::Binary(BinaryExpr::new(kind, Box::new(node), Box::new(rhs)));
@@ -97,19 +107,12 @@ impl<'a> Parser<'a> {
 
 impl<'a> Parser<'a> {
     pub fn expect(&mut self, kind: Kind) -> Result<TokenId, ()> {
-        match self.stream.expect(kind) {
-            Ok(id) => Ok(id),
-            Err(err) => {
-                self.errors.push(err);
-                Err(())
-            }
-        }
+        self.stream.expect(kind)
     }
 
     pub fn peek(&mut self) -> Result<Token, ()> {
         let token = self.stream.first();
         if let Kind::Eof = token.kind {
-            self.errors.push(ParseError::Unexpected(token));
             return Err(());
         }
         Ok(token)

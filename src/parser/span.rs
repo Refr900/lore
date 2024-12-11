@@ -12,6 +12,10 @@ impl Span {
         Self { start, end }
     }
 
+    pub fn dot(id: TokenId) -> Self {
+        Self { start: id, end: id }
+    }
+
     pub fn to_lexer_span(&self, spans: &[lexer::Span]) -> lexer::Span {
         let start = spans[self.start.0 as usize].start;
         let end = spans[self.end.0 as usize].start;

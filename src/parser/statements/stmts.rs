@@ -1,9 +1,9 @@
 use crate::{
     lexer::Kind,
-    parser::{Parse, ParseError, Parser, StatementExt, Token},
+    parser::{Item, ItemKind, Parse, ParseError, Parser, StatementExt, Token},
 };
 
-use super::StmtKind;
+use super::{ParseStmtError, StmtKind};
 
 impl Parse for Vec<StmtKind> {
     type Parsed = Self;
@@ -33,22 +33,9 @@ impl Parse for Vec<StmtKind> {
                     }
                     stmts.push(stmt);
                 }
-                Err(_) => break,
+                Err(err) => break,
             }
         }
-
-        if let [.., last] = parser.errors.as_slice() {
-            if matches!(
-                last,
-                ParseError::Unexpected(Token {
-                    id: _,
-                    kind: Kind::Eof
-                })
-            ) {
-                parser.errors.pop();
-            }
-        }
-
         Ok(stmts)
     }
 }

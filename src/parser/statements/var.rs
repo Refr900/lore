@@ -1,7 +1,8 @@
 use crate::{
-    lexer::{Kind, TokenId},
+    lexer::{AssignKind, Kind, TokenId},
     parser::{
-        Parse, ParseError, Parser, Span, StatementExt, SyntaxError, TypePathExpr, TypePathExt,
+        ExpectedItem, Item, ItemKind, ItemSequence, Parse, ParseError, Parser, Span, StatementExt,
+        SyntaxError, TypePathExpr, TypePathExt,
     },
 };
 
@@ -52,13 +53,15 @@ impl Parse for VarStmt {
             None => Mut::No,
         };
 
-        let name = match parser.stream.expect(Kind::Ident) {
-            Ok(id) => id,
-            Err(err) => {
-                parser.errors.push(err);
-                return Err(());
-            }
-        };
+        let token = parser.stream.first();
+        if !matches!(token.kind, Kind::Ident) {
+            let expected = ItemSequence::Single(ItemKind::Ident);
+            let found = Item::from_token(token);
+            parser.push_error(ExpectedItem::here(expected, found));
+            return Err(());
+        }
+        let name = token.id;
+        parser.stream.skip();
 
         let type_path = match parser.stream.maybe(Kind![:]) {
             Some(_) => Some(parser.parse_type_path()?),
@@ -66,17 +69,26 @@ impl Parse for VarStmt {
         };
 
         let token = parser.stream.first();
-        if !matches!(token.kind, Kind![=]) {
-            return Ok(Self {
-                span: Span::new(start, token.id),
-                vis,
-                mutability,
-                kind,
-                name,
-                type_path: None,
-                stmt_start: token.id,
-                stmt: None,
-            });
+        match token.kind {
+            Kind![=] => (),
+            Kind::Assign(_) => {
+                let eq = ItemKind::Assign(Some(AssignKind::Eq));
+                let expected = ItemSequence::Single(eq);
+                let found = Item::from_token(token);
+                parser.push_error(ExpectedItem::here(expected, found));
+            }
+            _ => {
+                return Ok(Self {
+                    span: Span::new(start, token.id),
+                    vis,
+                    mutability,
+                    kind,
+                    name,
+                    type_path: None,
+                    stmt_start: token.id,
+                    stmt: None,
+                });
+            }
         }
         parser.stream.skip();
         let stmt_start = parser.stream.current_id();
@@ -85,7 +97,7 @@ impl Parse for VarStmt {
         };
         let end = parser.stream.current_id();
         if let StmtKind::Var(var) = &stmt {
-            let value = ParseError::Syntax(SyntaxError::unvalid_assignment(var.span));
+            let value = ParseError::Syntax(SyntaxError::UnvalidAssignment { span: var.span });
             parser.errors.push(value);
         }
 

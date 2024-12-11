@@ -1,6 +1,6 @@
 use crate::{
     lexer::{Kind, TokenId},
-    parser::{Parse, Parser},
+    parser::{ExpectedItem, Item, ItemKind, ItemSequence, Parse, Parser},
 };
 
 #[derive(Debug, Clone)]
@@ -24,24 +24,30 @@ impl Parse for TypePathExpr {
     type Error = ();
 
     fn parse(parser: &mut Parser<'_>) -> Result<Self, ()> {
-        let Parser { stream, errors } = parser;
-        stream.maybe(Kind![::]);
-        let start = match stream.expect(Kind::Ident) {
-            Ok(id) => id,
-            Err(err) => {
-                errors.push(err);
-                return Err(());
-            }
-        };
+        parser.stream.maybe(Kind![::]);
+        let token = parser.stream.first();
+        let start = token.id;
+        if !matches!(token.kind, Kind::Ident) {
+            parser.push_error(ExpectedItem::here(
+                ItemSequence::Single(ItemKind::Ident),
+                Item::from_token(token),
+            ));
+            return Err(());
+        }
+        // skip ident
+        parser.stream.skip();
 
         let mut len = 0;
         loop {
-            if stream.expect(Kind![::]).is_err() {
+            if parser.stream.expect(Kind![::]).is_err() {
                 break;
             }
 
-            if let Err(err) = stream.expect(Kind::Ident) {
-                errors.push(err);
+            if let Err(_) = parser.stream.expect(Kind::Ident) {
+                parser.push_error(ExpectedItem::here(
+                    ItemSequence::Single(ItemKind::Ident),
+                    Item::from_token(token),
+                ));
                 return Err(());
             }
 
